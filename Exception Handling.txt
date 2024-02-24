@@ -1,0 +1,434 @@
+--##############Exception Handling#########--
+
+--CREATE PROCEDURE spDivideTwoNumber(
+--@Number1 INT, 
+--@Number2 INT
+--)
+--AS
+--BEGIN
+--    DECLARE @Result INT
+--    SET @Result = 0
+--    SET @Result = @Number1 / @Number2
+--    PRINT 'RESULT IS :'+CAST(@Result AS VARCHAR)
+--END
+
+----========================================================================
+--EXEC spDivideTwoNumber 100, 5
+
+--EXEC spDivideTwoNumber 100, 0
+----========================================================================
+--ALTER PROCEDURE spDivideTwoNumber
+--@Number1 INT, 
+--@Number2 INT
+--AS
+--BEGIN
+--    DECLARE @Result INT
+--    SET @Result = 0
+--    IF(@Number2 = 0)
+--    BEGIN
+--         RAISERROR('Second Number Cannot be zero', 16, 1)
+--    END
+--    ELSE
+--    BEGIN
+--        SET @Result = @Number1 / @Number2
+--        PRINT 'RESULT IS : '+ CAST(@Result AS VARCHAR)
+--    END
+--END
+----=======================================================================
+--ALTER PROCEDURE spDivideTwoNumber
+--@Number1 INT, 
+--@Number2 INT
+--AS
+--BEGIN
+--  DECLARE @Result INT
+--  SET @Result = 0
+--  IF(@Number2 = 0)
+--  BEGIN
+--    RAISERROR('Second Number Cannot be zero',16,1)
+--  END
+--  ELSE
+--  BEGIN
+--    SET @Result = @Number1 / @Number2
+--  END
+
+--  IF(@@ERROR <> 0)
+--  BEGIN
+--    PRINT 'Error Occurred'
+--  END
+--  ELSE
+--  BEGIN
+--    PRINT 'RESULT IS :'+CAST(@Result AS VARCHAR)
+--  END
+--END
+--================================================================================
+--########################  ErrorRaise and @@ErrorRaise  ############################
+
+----RaiseError and @@ERROR Function
+
+---- Create Product table
+--CREATE TABLE Product
+--(
+-- ProductId INT PRIMARY KEY,
+-- Name VARCHAR(50),
+-- Price INT,
+-- QuantityAvailable INT
+--)
+--GO
+---- Populate the Product Table with some test data
+--INSERT INTO Product VALUES(101, 'Laptop', 1234, 100)
+--INSERT INTO Product VALUES(102, 'Desktop', 3456, 50)
+--INSERT INTO Product VALUES(103, 'Tablet', 5678, 35)
+--INSERT INTO Product VALUES(104, 'Mobile', 7890, 25)
+--GO
+
+---- Create ProductSales table
+--CREATE TABLE ProductSales
+--(
+-- ProductSalesId INT PRIMARY KEY,
+-- ProductId INT,
+-- QuantitySold INT
+--) 
+--GO
+
+---- Populate the ProductSales Table with some test data
+--INSERT INTO ProductSales VALUES(1, 101, 5)
+--INSERT INTO ProductSales VALUES(2, 102, 7)
+--INSERT INTO ProductSales VALUES(3, 103, 5)
+--INSERT INTO ProductSales VALUES(4, 104, 7)
+--Go
+
+----=======================================================================
+
+--CREATE PROCEDURE spSellProduct
+--@ProductID INT,
+--@QuantityToSell INT
+--AS
+--BEGIN
+-- -- First we need to Check the stock available for the product we want to sell
+-- DECLARE @StockAvailable INT
+-- SELECT @StockAvailable = QuantityAvailable FROM Product WHERE ProductId = @ProductId
+
+-- -- We need to throw an error to the calling application 
+-- -- if the stock is less than the quantity we want to sell
+-- IF(@StockAvailable < @QuantityToSell)
+-- BEGIN
+--  Raiserror('Enough Stock is not available', 16, 1)
+-- END
+
+-- -- If enough stock is available
+-- ELSE
+-- BEGIN
+--  -- We need to start the transaction
+--  BEGIN TRANSACTION
+
+--   -- First we need to reduce the quantity available
+--   UPDATE Product SET QuantityAvailable = (QuantityAvailable - @QuantityToSell)
+--   WHERE ProductID = @ProductID
+
+--   -- Then Calculate MAX ProductSalesId
+--   DECLARE @MaxProductSalesId INT
+--   SELECT @MaxProductSalesId = CASE 
+--    WHEN  MAX(ProductSalesId) IS NULL THEN 0 
+--    ELSE MAX(ProductSalesId) 
+--    END 
+--   FROM ProductSales
+
+--   -- Increment @MaxProductSalesId by 1, so we don't get a primary key violation
+--   Set @MaxProductSalesId = @MaxProductSalesId + 1
+
+--   -- We need to insert the quantity sold into the ProductSales table
+--   INSERT INTO ProductSales(ProductSalesId, ProductId, QuantitySold)
+--   VALUES(@MaxProductSalesId, @ProductId, @QuantityToSell)
+--  COMMIT TRANSACTION
+-- End
+--END
+
+----=================================================================================================
+--ALTER PROCEDURE spSellProduct
+--@ProductID INT,
+--@QuantityToSell INT
+--AS
+--BEGIN
+-- -- First we need to Check the stock available for the product we want to sell
+-- DECLARE @StockAvailable INT
+-- SELECT @StockAvailable = QuantityAvailable FROM Product  WHERE ProductId = @ProductId
+
+-- -- We need to throw an error to the calling application 
+-- -- if the stock is less than the quantity we want to sell
+-- IF(@StockAvailable< @QuantityToSell)
+-- BEGIN
+--  Raiserror('Enough Stock is not available',16,1)
+-- END
+
+-- -- If enough stock is available
+-- ELSE
+-- BEGIN
+--  -- We need to start the transaction
+--  BEGIN TRANSACTION
+--   -- First we need to reduce the quantity available
+--   UPDATE Product SET QuantityAvailable = (QuantityAvailable - @QuantityToSell)
+--   WHERE ProductID = @ProductID
+    
+--  -- Calculate MAX ProductSalesId
+--  DECLARE @MaxProductSalesId INT
+--  SELECT @MaxProductSalesId = CASE 
+--   WHEN  MAX(ProductSalesId) IS NULL THEN 0 
+--   ELSE MAX(ProductSalesId) 
+--   END 
+--  FROM ProductSales
+
+--  -- Increment @MaxProductSalesId by 1, so we don't get a primary key violation
+--  Set @MaxProductSalesId = @MaxProductSalesId + 1
+
+--  -- We need to insert the quantity sold into the ProductSales table
+--  INSERT INTO ProductSales(ProductSalesId, ProductId, QuantitySold)
+--  VALUES(@MaxProductSalesId, @ProductId, @QuantityToSell)
+
+--  -- The @@Error returns a NON-ZERO value if there is an error, otherwise it will return ZERO, 
+--  -- indicating that the previous SQL statement encountered no errors
+--  IF(@@ERROR <> 0)
+--  BEGIN
+--   ROLLBACK TRANSACTION
+--   PRINT 'Rolled Back the Transaction'
+--  END
+--  ELSE
+--  BEGIN
+--   COMMIT TRANSACTION
+--   PRINT 'Committed the Transaction'
+--  END
+-- End
+--END
+----===================================================================================================
+--INSERT INTO Product values(4, 'Mobile Phone', 1500, 100)
+--IF(@@ERROR <> 0)
+--     PRINT 'Error Occurred'
+--ELSE
+--     PRINT 'No Errors'
+
+----==================================================================================================
+--INSERT INTO Product values(4, 'Mobile Phone', 1500, 100)
+---- At this point the @@ERROR will have a NON ZERO value 
+--SELECT * FROM Product
+---- At this point the @@ERROR reset to ZERO, because the 
+---- select statement successfully executed
+--IF(@@ERROR <> 0)
+--     PRINT 'Error Occurred'
+--ELSE
+--     PRINT 'No Errors'
+
+----===================================================================================================
+--DECLARE @Error INT
+--INSERT INTO Product VALUES(4, 'Mobile Phone', 1500, 100)
+--Set @Error = @@ERROR
+--SELECT * FROM Product
+--IF(@Error <> 0)
+--     PRINT 'Error Occurred'
+--ELSE
+--     PRINT 'No Errors'
+
+----========================================================================================================
+--######################----How to Raise Errors Explicitly  ###################################
+
+--CREATE PROCEDURE spDivideBy1(@No1 INT, @No2 INT)
+--AS
+--BEGIN
+--  DECLARE @Result INT
+--  SET @Result = 0
+--  BEGIN TRY
+--    IF @No2 = 1
+--    RAISERROR ('DIVISOR CANNOT BE ONE', 16, 1)
+--    SET @Result = @No1 / @No2
+--    PRINT 'THE RESULT IS: '+CAST(@Result AS VARCHAR)
+--  END TRY
+--  BEGIN CATCH
+--    PRINT ERROR_NUMBER()
+--    PRINT ERROR_MESSAGE()
+--    PRINT ERROR_SEVERITY()
+--    PRINT ERROR_STATE()
+--  END CATCH
+--END
+
+-- EXEC spDivideBy1 10, 1
+-- --================================================================
+-- ALTER PROCEDURE spDivideBy2(@No1 INT, @No2 INT)
+--AS
+--BEGIN
+--  DECLARE @Result INT
+--  SET @Result = 0
+--  BEGIN TRY
+--    IF @No2 = 1
+--    THROW 50001,'DIVISOR CANNOT BE ONE', 1
+--    SET @Result = @No1 / @No2
+--    PRINT 'THE RESULT IS: '+CAST(@Result AS VARCHAR)
+--  END TRY
+--  BEGIN CATCH
+--    PRINT ERROR_NUMBER()
+--    PRINT ERROR_MESSAGE()
+--    PRINT ERROR_SEVERITY()
+--    PRINT ERROR_STATE()
+--  END CATCH
+--END
+
+--EXEC spDivideBy2 10, 1
+
+----=================================================================
+--ALTER PROCEDURE spDivideBy1(@No1 INT, @No2 INT)
+--AS
+--BEGIN
+--  DECLARE @Result INT
+--  SET @Result = 0
+--  BEGIN TRY
+--    IF @No2 = 1
+--    RAISERROR ('DIVISOR CANNOT BE ONE', 16, 1) WITH LOG
+--    SET @Result = @No1 / @No2
+--    PRINT 'THE RESULT IS: '+CAST(@Result AS VARCHAR)
+--  END TRY
+--  BEGIN CATCH
+--    PRINT ERROR_NUMBER()
+--    PRINT ERROR_MESSAGE()
+--    PRINT ERROR_SEVERITY()
+--    PRINT ERROR_STATE()
+--  END CATCH
+--END
+----==================================================================
+--EXEC sp_Addmessage 51000, 16, 'DIVIDE BY ONE ERROR ENCOUNTERED'
+
+--RAISERROR (51000,16, 1)WITH LOG
+
+--EXEC sp_dropMessage 51000
+
+--===========================================================================================
+------##########################Try catch #############################------------------------------
+
+--CREATE PROCEDURE spDivideTwoNumbers
+--@Number1 INT, 
+--@Number2 INT
+--AS
+--BEGIN
+--  DECLARE @Result INT
+--  SET @Result = 0
+--  BEGIN TRY
+--    SET @Result = @Number1 / @Number2
+--    PRINT 'RESULT IS : '+CAST(@Result AS VARCHAR)
+--  END TRY
+--  BEGIN CATCH
+--    PRINT 'SECOND NUMBER SHOULD NOT BE ZERO'
+--  END CATCH
+--END
+
+--EXEC spDivideTwoNumbers 10, 2
+
+--EXEC spDivideTwoNumbers 10, 0
+
+----========================================================
+--ALTER PROCEDURE spDivideTwoNumbers
+--@Number1 INT, 
+--@Number2 INT
+--AS
+--BEGIN
+--  DECLARE @Result INT
+--  SET @Result = 0
+--  BEGIN TRY
+--    SET @Result = @Number1 / @Number2
+--    PRINT 'RESULT IS : '+CAST(@Result AS VARCHAR)
+--  END TRY
+--  BEGIN CATCH
+--    PRINT ERROR_MESSAGE()
+--  END CATCH
+--END
+
+
+--EXEC spDivideTwoNumbers 10, 0
+
+----=========================================================
+---- Create Product table
+--CREATE TABLE Product
+--(
+-- ProductId INT PRIMARY KEY,
+-- Name VARCHAR(50),
+-- Price INT,
+-- QuantityAvailable INT
+--)
+--GO
+---- Populate the Product Table with some test data
+--INSERT INTO Product VALUES(101, 'Laptop', 1234, 100)
+--INSERT INTO Product VALUES(102, 'Desktop', 3456, 50)
+--INSERT INTO Product VALUES(103, 'Tablet', 5678, 35)
+--INSERT INTO Product VALUES(104, 'Mobile', 7890, 25)
+--GO
+
+---- Create ProductSales table
+--CREATE TABLE ProductSales
+--(
+-- ProductSalesId INT PRIMARY KEY,
+-- ProductId INT,
+-- QuantitySold INT
+--) 
+--GO
+
+---- Populate the ProductSales Table with some test data
+--INSERT INTO ProductSales VALUES(1, 101, 5)
+--INSERT INTO ProductSales VALUES(2, 102, 7)
+--INSERT INTO ProductSales VALUES(3, 103, 5)
+--INSERT INTO ProductSales VALUES(4, 104, 7)
+--Go
+
+----==============================================================
+--CREATE PROCEDURE spSellProduct
+--@ProductID INT,
+--@QuantityToSell INT
+--AS
+--BEGIN
+--  -- First we need to Check the stock available for the product we want to sell
+--  DECLARE @StockAvailable INT
+
+--  SELECT @StockAvailable = QuantityAvailable 
+--  FROM Product 
+--  WHERE ProductId = @ProductId
+
+--  -- We need to throw an error to the calling application 
+--  -- if the stock is less than the quantity we want to sell
+--  IF(@StockAvailable< @QuantityToSell)
+--  BEGIN
+--    Raiserror('Enough Stock is not available',16,1)
+--  END
+--  -- If enough stock is available
+--  ELSE
+--  BEGIN
+--    BEGIN TRY
+--      -- We need to start the transaction
+--      BEGIN TRANSACTION
+
+--      -- First we need to reduce the quantity available
+--      UPDATE Product SET 
+--          QuantityAvailable = (QuantityAvailable - @QuantityToSell)
+--      WHERE ProductID = @ProductID
+
+--      -- Calculate MAX ProductSalesId
+--      DECLARE @MaxProductSalesId INT
+--      SELECT @MaxProductSalesId = CASE 
+--          WHEN  MAX(ProductSalesId) IS NULL THEN 0 
+--          ELSE MAX(ProductSalesId) 
+--          END 
+--      FROM ProductSales
+
+--      -- Increment @MaxProductSalesId by 1, so we don't get a primary key violation
+--      Set @MaxProductSalesId = @MaxProductSalesId + 1
+
+--      -- We need to insert the quantity sold into the ProductSales table
+--      INSERT INTO ProductSales(ProductSalesId, ProductId, QuantitySold)
+--      VALUES(@MaxProductSalesId, @ProductId, @QuantityToSell)
+
+--      COMMIT TRANSACTION
+--    END TRY
+--    BEGIN CATCH
+--      ROLLBACK TRANSACTION
+--      SELECT ERROR_NUMBER() as ErrorNumber,
+--          ERROR_MESSAGE() as ErrorMessage,
+--          ERROR_PROCEDURE() as ErrorProcedure,
+--          ERROR_STATE() as ErrorState,
+--          ERROR_SEVERITY() as ErrorSeverity,
+--          ERROR_LINE() as ErrorLine
+--    END CATCH
+--  End
+--END
